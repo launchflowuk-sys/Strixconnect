@@ -74,6 +74,67 @@ cd /path/to/project && npx tsx scripts/seed.ts
 | Tenant Admin | `thurrock.admin` | `Thurrock2024!` |
 | Compliance Manager | `compliance.manager` | `Manager2024!` |
 
+## Production deployment (Docker Compose + Coolify)
+
+The repo ships with a ready-to-use Docker Compose stack:
+
+| File | Purpose |
+|---|---|
+| `Dockerfile.api` | Multi-stage: builds the Express API with esbuild, runs with node:22-slim |
+| `Dockerfile.web` | Multi-stage: builds the Vite dashboard, serves with nginx:alpine |
+| `nginx/default.conf` | Serves static files, proxies `/api/` to the api container, SPA fallback |
+| `docker-compose.yml` | Ties the two services together with a named volume for uploads |
+| `.dockerignore` | Excludes node_modules, dist, Replit-specific files from the build context |
+
+### Environment variables (set in Coolify UI)
+
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | ✅ | PostgreSQL connection string (via PgBouncer) |
+| `JWT_SECRET` | ✅ | Random secret — generate with `openssl rand -hex 64` |
+| `NODE_ENV` | ✅ | Set to `production` |
+| `APP_URL` | ✅ | Public URL e.g. `https://compliance.yourdomain.com` (used in emails) |
+| `SMTP_HOST` | optional | Mail server — leave blank to disable email reminders |
+| `SMTP_PORT` | optional | Default `587` |
+| `SMTP_USER` | optional | SMTP login |
+| `SMTP_PASS` | optional | SMTP password |
+| `SMTP_FROM` | optional | From address shown in emails |
+| `JWT_EXPIRES_IN` | optional | Default `24h` |
+| `LOG_LEVEL` | optional | Default `info` |
+
+### First deploy — apply the database schema
+
+The API server does NOT run migrations automatically on startup. Before the first deploy, point `DATABASE_URL` at your production PostgreSQL and run the schema push once:
+
+```bash
+# From the repo root (Replit workspace or a clone on the VPS):
+DATABASE_URL="postgresql://user:pass@your-vps:5432/complianceos" \
+  pnpm --filter @workspace/db run push
+```
+
+System compliance types and the super-admin user are created automatically on the first server startup via `syncSystemComplianceTypes()`.
+
+### Starting / updating
+
+```bash
+# Build and start (or restart after a code change)
+docker compose build && docker compose up -d
+
+# View live logs
+docker compose logs -f
+
+# Restart just the API after a config change
+docker compose restart api
+```
+
+### Uploaded files (certificates, documents, import spreadsheets)
+
+Files are stored inside the `uploads` Docker named volume (mounted at `/data/uploads` in the api container). To back them up or inspect them from the host, find the volume path with:
+
+```bash
+docker volume inspect complianceos_uploads
+```
+
 ## User preferences
 
 - No Replit-specific services (no Replit DB, Object Storage, or Auth)

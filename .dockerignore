@@ -1,0 +1,43 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies — installed fresh inside the image
+node_modules
+**/node_modules
+
+# Build outputs — rebuilt inside the image
+**/dist
+**/.tsbuildinfo
+
+# Replit-specific
+.replit
+.replit.nix
+replit.nix
+.breakpoints
+.upm
+.config
+.local
+
+# Replit agent memory / tasks
+.agents
+
+# Dev / test artifacts
+attached_assets
+screenshots
+uploads
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,46 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 1 — builder
+# Installs all workspace deps and compiles the API server with esbuild.
+# Uses node:22-slim (Debian glibc) because pnpm-workspace.yaml keeps
+# @esbuild/linux-x64-gnu and excludes the musl/Alpine variant.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM node:22-slim AS builder
+WORKDIR /workspace
+
+# Enable corepack and pin pnpm to the version used in development
+RUN corepack enable && corepack prepare pnpm@10.26.1 --activate
+
+# Copy the full monorepo (node_modules excluded via .dockerignore)
+COPY . .
+
+# Install all workspace dependencies
+RUN pnpm install --frozen-lockfile
+
+# Build the API server (esbuild → artifacts/api-server/dist/index.mjs)
+RUN pnpm --filter @workspace/api-server run build
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 2 — runner
+# Lean production image. Only the bundled dist/ and runtime-external packages
+# (those in build.mjs `external` list that are actually imported at runtime)
+# are needed here.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM node:22-slim AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Bundled application (includes pino worker shims produced by esbuild-plugin-pino)
+COPY --from=builder /workspace/artifacts/api-server/dist/ ./dist/
+
+# Runtime externals — packages esbuild did NOT bundle (see build.mjs external list).
+# The full workspace node_modules is copied so every external resolves correctly
+# regardless of which optional features are in use (email, object storage, etc.).
+COPY --from=builder /workspace/node_modules/ ./node_modules/
+
+# Ensure the default upload directory exists (usually overridden by a volume)
+RUN mkdir -p /data/uploads
+
+EXPOSE 8080
+
+CMD ["node", "--enable-source-maps", "./dist/index.mjs"]

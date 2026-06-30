@@ -1,0 +1,53 @@
+services:
+
+  # ── API server (Express + Drizzle) ─────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      NODE_ENV: production
+      UPLOAD_ROOT: /data/uploads
+
+      # ── Required ────────────────────────────────────────────────────────────
+      # Set these in Coolify's environment variable UI (or a .env file locally).
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      # Public-facing URL used in compliance reminder email deep-links.
+      # Example: https://compliance.yourdomain.com
+      APP_URL: ${APP_URL}
+
+      # ── Optional tuning ─────────────────────────────────────────────────────
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      # ── SMTP — leave blank to disable email reminders ───────────────────────
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+
+    volumes:
+      # Named volume persists uploaded certificates and documents across deploys.
+      # Map this to a host path in Coolify if you want direct VPS access:
+      #   - /opt/complianceos/uploads:/data/uploads
+      - uploads:/data/uploads
+
+  # ── Web / dashboard (nginx serving static Vite build) ─────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    ports:
+      # Coolify's Traefik reverse proxy will detect port 80 and handle SSL.
+      - "80:80"
+    depends_on:
+      - api
+
+# ── Volumes ─────────────────────────────────────────────────────────────────
+volumes:
+  uploads:
