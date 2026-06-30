@@ -1,6 +1,5 @@
 import { Router } from "express";
 import path from "path";
-import { randomUUID } from "crypto";
 import crypto from "crypto";
 import { db } from "@workspace/db";
 import { documents, complianceRecords, users, assetComplianceItems, complianceTypes, assets } from "@workspace/db/schema";
@@ -8,7 +7,6 @@ import { and, eq, gte, ilike, isNull, lte, or, sql } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { writeAuditLog } from "../lib/audit";
 import { saveFile, saveFileExact, isAllowedFileType, guessMime, absolutePath } from "../lib/storage";
-import { objectStorageClient, ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { existsSync } from "fs";
 
 const DOWNLOAD_TOKEN_SECRET = process.env.JWT_SECRET ?? "dev-secret-change-in-production";
@@ -77,19 +75,7 @@ router.get("/documents/:docId/download", async (req: any, res) => {
     const disposition = `${inline ? "inline" : "attachment"}; filename="${encodeURIComponent(doc.fileName)}"`;
 
     if (doc.filePath.startsWith("/objects/")) {
-      const svc = new ObjectStorageService();
-      try {
-        const gcsFile = await svc.getObjectEntityFile(doc.filePath);
-        res.setHeader("Content-Type", mime);
-        res.setHeader("Content-Disposition", disposition);
-        gcsFile.createReadStream().pipe(res);
-      } catch (err) {
-        if (err instanceof ObjectNotFoundError) {
-          res.status(404).json({ error: "File not found in object storage" });
-        } else {
-          throw err;
-        }
-      }
+      res.status(404).json({ error: "File not found (legacy storage path not supported)" });
       return;
     }
 
@@ -116,27 +102,6 @@ router.use(requireAuth);
 
 const tid = (req: any): string => req.user!.tenantId;
 
-function parseGcsPath(gcsPath: string): { bucketName: string; objectName: string } {
-  const normalized = gcsPath.startsWith("/") ? gcsPath : `/${gcsPath}`;
-  const parts = normalized.split("/");
-  return { bucketName: parts[1], objectName: parts.slice(2).join("/") };
-}
-
-async function uploadToObjectStorage(buf: Buffer, filename: string, mimeType: string): Promise<string> {
-  const privateDir = process.env.PRIVATE_OBJECT_DIR;
-  if (!privateDir) throw new Error("PRIVATE_OBJECT_DIR not set");
-
-  const { bucketName, objectName: dirPrefix } = parseGcsPath(privateDir);
-  const objectId = randomUUID();
-  const safeName = path.basename(filename).replace(/[/\\<>:"|?*\x00-\x1f]/g, "_") || "upload";
-  const objectName = dirPrefix ? `${dirPrefix}/uploads/${objectId}_${safeName}` : `uploads/${objectId}_${safeName}`;
-
-  const bucket = objectStorageClient.bucket(bucketName);
-  const gcsFile = bucket.file(objectName);
-  await gcsFile.save(buf, { contentType: mimeType, resumable: false });
-
-  return `/objects/uploads/${objectId}_${safeName}`;
-}
 
 // ── Upload document ───────────────────────────────────────────────────────────
 
@@ -338,22 +303,7 @@ router.get("/documents/:docId/signed-url", async (req, res) => {
     if (!doc) { res.status(404).json({ error: "Document not found" }); return; }
 
     if (doc.filePath.startsWith("/objects/")) {
-      const svc = new ObjectStorageService();
-      try {
-        const gcsFile = await svc.getObjectEntityFile(doc.filePath);
-        const [url] = await (gcsFile as any).getSignedUrl({
-          action: "read",
-          expires: Date.now() + 5 * 60 * 1000,
-          responseDisposition: `attachment; filename="${encodeURIComponent(doc.fileName)}"`,
-        });
-        res.json({ url });
-      } catch (err) {
-        if (err instanceof ObjectNotFoundError) {
-          res.status(404).json({ error: "File not found in object storage" });
-        } else {
-          throw err;
-        }
-      }
+      res.status(404).json({ error: "File not found (legacy storage path not supported)" });
       return;
     }
 
@@ -394,7 +344,7 @@ router.post("/compliance-records/:recordId/documents", async (req: any, res) => 
     }
 
     const mimeType = guessMime(filename);
-    const filePath = await uploadToObjectStorage(buf, filename, mimeType);
+    const { relativePath: filePath } = await saveFile(tenantId, "compliance-records", filename, buf);
 
     const [doc] = await db.insert(documents).values({
       tenantId,
