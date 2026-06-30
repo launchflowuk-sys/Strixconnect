@@ -1,8 +1,43 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import authRouter from "./auth";
+import tenantsRouter from "./tenants";
+import usersRouter from "./users";
+import assetsRouter from "./assets";
+import complianceTypesRouter from "./compliance-types";
+import assetComplianceRouter from "./asset-compliance";
+import dashboardRouter from "./dashboard";
+import auditRouter from "./audit";
+import teamsRouter from "./teams";
+import importsRouter from "./imports";
+import jobsRouter from "./jobs";
+import serviceRecordsRouter from "./service-records";
+import documentsRouter from "./documents";
+import certificateExtractRouter from "./certificate-extract";
+import { reportsRouter, platformRouter } from "./reports";
+import complianceImportsRouter from "./compliance-imports";
+import assetFieldDefinitionsRouter from "./asset-field-definitions";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(authRouter);
+router.use(tenantsRouter);
+router.use(usersRouter);
+router.use(assetsRouter);
+router.use(complianceTypesRouter);
+router.use(assetComplianceRouter);
+router.use(dashboardRouter);
+router.use(auditRouter);
+router.use(teamsRouter);
+router.use(importsRouter);
+router.use(jobsRouter);
+router.use(serviceRecordsRouter);
+router.use(certificateExtractRouter);
+router.use(documentsRouter);
+router.use(reportsRouter);
+router.use(complianceImportsRouter);
+router.use(assetFieldDefinitionsRouter);
+router.use(platformRouter);
 
 export default router;

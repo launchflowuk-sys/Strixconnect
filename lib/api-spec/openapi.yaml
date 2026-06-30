@@ -1,22 +1,47 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Council Asset & Compliance Management Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: tenants
+    description: Tenant management (Super Admin)
+  - name: users
+    description: User management
+  - name: assets
+    description: Asset management
+  - name: compliance-types
+    description: Compliance type configuration
+  - name: asset-compliance
+    description: Asset compliance items and records
+  - name: dashboard
+    description: Dashboard and summary data
+  - name: audit
+    description: Audit logs and history
+  - name: teams
+    description: Team management
+  - name: imports
+    description: Excel/CSV import pipeline
+  - name: jobs
+    description: Jobs and remedial works
+  - name: service-records
+    description: Service record uploads and compliance updates
+  - name: documents
+    description: Evidence and document management
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +49,1654 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── AUTH ──────────────────────────────────────────────────────────────────
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResult"
+        "401":
+          description: Invalid credentials
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout current user
+      responses:
+        "200":
+          description: Logged out
+
+  /my-tenant:
+    get:
+      operationId: getMyTenant
+      tags: [users]
+      summary: Get the current user's tenant workspace details
+      responses:
+        "200":
+          description: Tenant details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+    patch:
+      operationId: updateMyTenant
+      tags: [users]
+      summary: Update the current tenant's workspace settings (tenant_admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantSettingsInput"
+      responses:
+        "200":
+          description: Updated tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Not authenticated
+
+  /auth/change-password:
+    post:
+      operationId: changePassword
+      tags: [auth]
+      summary: Change own password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordInput"
+      responses:
+        "200":
+          description: Password changed
+
+  # ── TENANTS (Super Admin) ─────────────────────────────────────────────────
+  /tenants:
+    get:
+      operationId: listTenants
+      tags: [tenants]
+      summary: List all tenants (Super Admin)
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: status
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tenant list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantList"
+    post:
+      operationId: createTenant
+      tags: [tenants]
+      summary: Create a new tenant (Super Admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantInput"
+      responses:
+        "201":
+          description: Tenant created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+
+  /tenants/{tenantId}:
+    get:
+      operationId: getTenant
+      tags: [tenants]
+      summary: Get tenant details
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tenant detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+    patch:
+      operationId: updateTenant
+      tags: [tenants]
+      summary: Update tenant
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantUpdate"
+      responses:
+        "200":
+          description: Updated tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+
+  /tenants/{tenantId}/suspend:
+    post:
+      operationId: suspendTenant
+      tags: [tenants]
+      summary: Suspend a tenant
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tenant suspended
+
+  /tenants/{tenantId}/activate:
+    post:
+      operationId: activateTenant
+      tags: [tenants]
+      summary: Activate a suspended tenant
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tenant activated
+
+  /tenants/{tenantId}/stats:
+    get:
+      operationId: getTenantStats
+      tags: [tenants]
+      summary: Get per-tenant usage statistics
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tenant stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantStats"
+
+  # ── USERS ─────────────────────────────────────────────────────────────────
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List users in current tenant
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: role
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: User list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserList"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a user in current tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{userId}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user detail
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: User detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{userId}/deactivate:
+    post:
+      operationId: deactivateUser
+      tags: [users]
+      summary: Deactivate a user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: User deactivated
+
+  # ── ASSETS ────────────────────────────────────────────────────────────────
+  /assets:
+    get:
+      operationId: listAssets
+      tags: [assets]
+      summary: List assets for current tenant
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: assetType
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: area
+          in: query
+          schema: { type: string }
+        - name: parentId
+          in: query
+          schema: { type: string }
+        - name: heatingType
+          in: query
+          schema: { type: string }
+        - name: propertySubtype
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Asset list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetList"
+    post:
+      operationId: createAsset
+      tags: [assets]
+      summary: Create a new asset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetInput"
+      responses:
+        "201":
+          description: Asset created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+
+  /assets/{assetId}:
+    get:
+      operationId: getAsset
+      tags: [assets]
+      summary: Get asset detail
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Asset detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetDetail"
+    patch:
+      operationId: updateAsset
+      tags: [assets]
+      summary: Update asset
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetUpdate"
+      responses:
+        "200":
+          description: Updated asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+    delete:
+      operationId: archiveAsset
+      tags: [assets]
+      summary: Archive an asset (soft delete)
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Asset archived
+
+  /assets/{assetId}/children:
+    get:
+      operationId: listAssetChildren
+      tags: [assets]
+      summary: List child assets (flats in a block)
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Child assets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetList"
+
+  /assets/{assetId}/history:
+    get:
+      operationId: getAssetHistory
+      tags: [assets]
+      summary: Get full change history for an asset
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Asset history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HistoryEntry"
+
+  # ── COMPLIANCE TYPES ──────────────────────────────────────────────────────
+  /compliance-types:
+    get:
+      operationId: listComplianceTypes
+      tags: [compliance-types]
+      summary: List compliance types for current tenant
+      responses:
+        "200":
+          description: Compliance types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ComplianceType"
+    post:
+      operationId: createComplianceType
+      tags: [compliance-types]
+      summary: Create a compliance type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComplianceTypeInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceType"
+
+  /compliance-types/{typeId}:
+    patch:
+      operationId: updateComplianceType
+      tags: [compliance-types]
+      summary: Update a compliance type
+      parameters:
+        - name: typeId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComplianceTypeUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceType"
+
+  /compliance-types/{typeId}/custom-fields/{fieldKey}:
+    patch:
+      operationId: renameCustomField
+      tags: [compliance-types]
+      summary: Rename a custom field label on a compliance type
+      parameters:
+        - name: typeId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: fieldKey
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomFieldLabelUpdate"
+      responses:
+        "200":
+          description: Updated compliance type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceType"
+    delete:
+      operationId: deleteCustomField
+      tags: [compliance-types]
+      summary: Remove a custom field definition from a compliance type
+      parameters:
+        - name: typeId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: fieldKey
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated compliance type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceType"
+
+  # ── ASSET COMPLIANCE ITEMS ────────────────────────────────────────────────
+  /assets/{assetId}/compliance:
+    get:
+      operationId: listAssetComplianceItems
+      tags: [asset-compliance]
+      summary: List all compliance items for an asset
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Compliance items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssetComplianceItem"
+
+  /assets/{assetId}/compliance/{complianceTypeId}/enable:
+    post:
+      operationId: enableComplianceItem
+      tags: [asset-compliance]
+      summary: Enable a compliance type on an asset
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: complianceTypeId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Enabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetComplianceItem"
+
+  /assets/{assetId}/compliance/{complianceTypeId}/disable:
+    post:
+      operationId: disableComplianceItem
+      tags: [asset-compliance]
+      summary: Disable a compliance type on an asset
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: complianceTypeId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Disabled
+
+  /assets/{assetId}/compliance-items/{itemId}:
+    delete:
+      operationId: deleteComplianceItem
+      tags: [asset-compliance]
+      summary: Remove a compliance type from an asset
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: itemId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /assets/{assetId}/compliance-items/bulk:
+    post:
+      operationId: bulkCreateComplianceItems
+      tags: [asset-compliance]
+      summary: Bulk-create compliance items for an asset (skips duplicates)
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkComplianceItemsInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssetComplianceItem"
+
+  /compliance-items/bulk-assign:
+    post:
+      operationId: bulkAssignComplianceItems
+      tags: [asset-compliance]
+      summary: Bulk-assign compliance types to all assets matching given asset types
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkAssignInput"
+      responses:
+        "200":
+          description: Bulk assign result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkAssignResult"
+
+  /compliance-items/bulk-assign/preview:
+    get:
+      operationId: previewBulkAssign
+      tags: [asset-compliance]
+      summary: Preview how many assets would be affected by a bulk assign
+      parameters:
+        - name: complianceTypeIds
+          in: query
+          schema: { type: string }
+        - name: assetTypes
+          in: query
+          schema: { type: string }
+        - name: activeOnly
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Preview count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkAssignPreview"
+
+  /compliance-items:
+    get:
+      operationId: listAllComplianceItems
+      tags: [asset-compliance]
+      summary: List all compliance items across all assets for the tenant
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: complianceTypeId
+          in: query
+          schema: { type: string }
+        - name: enabledOnly
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: Compliance items list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceItemList"
+
+  /compliance-records:
+    get:
+      operationId: fetchComplianceRecords
+      tags: [asset-compliance]
+      summary: List compliance records for a compliance item
+      parameters:
+        - name: itemId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Compliance records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceRecordList"
+
+  /compliance-items/{itemId}/records:
+    post:
+      operationId: createComplianceRecord
+      tags: [asset-compliance]
+      summary: Add a compliance record (manual update)
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComplianceRecordInput"
+      responses:
+        "201":
+          description: Record created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceRecord"
+
+  /compliance-items/{itemId}/history:
+    get:
+      operationId: getComplianceItemHistory
+      tags: [asset-compliance]
+      summary: Get full history for a compliance item
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: History entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HistoryEntry"
+
+  # ── DASHBOARD ─────────────────────────────────────────────────────────────
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard summary counts
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/compliance-status:
+    get:
+      operationId: getComplianceStatusBreakdown
+      tags: [dashboard]
+      summary: Compliance status breakdown by type
+      responses:
+        "200":
+          description: Breakdown by compliance type and status
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ComplianceStatusBreakdown"
+
+  /dashboard/overdue:
+    get:
+      operationId: getOverdueItems
+      tags: [dashboard]
+      summary: Get overdue compliance items
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: complianceTypeId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Overdue items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OverdueItem"
+
+  /dashboard/assets-by-type:
+    get:
+      operationId: getAssetsByType
+      tags: [dashboard]
+      summary: Asset count grouped by type
+      responses:
+        "200":
+          description: Assets by type
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssetTypeCount"
+
+  /dashboard/due-soon:
+    get:
+      operationId: getDueSoonItems
+      tags: [dashboard]
+      summary: Compliance items due within next 30/60/90 days
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, default: 30 }
+      responses:
+        "200":
+          description: Due soon items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DueSoonItem"
+
+  # ── AUDIT LOG ─────────────────────────────────────────────────────────────
+  /audit-logs:
+    get:
+      operationId: listAuditLogs
+      tags: [audit]
+      summary: List audit log entries for tenant
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: entityType
+          in: query
+          schema: { type: string }
+        - name: entityId
+          in: query
+          schema: { type: string }
+        - name: userId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogList"
+
+  # ── TEAMS ──────────────────────────────────────────────────────────────────
+  /teams:
+    get:
+      operationId: listTeams
+      tags: [teams]
+      summary: List all teams for the tenant
+      responses:
+        "200":
+          description: Teams list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Team"
+    post:
+      operationId: createTeam
+      tags: [teams]
+      summary: Create a team
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamInput"
+      responses:
+        "201":
+          description: Team created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+
+  /teams/{teamId}:
+    patch:
+      operationId: updateTeam
+      tags: [teams]
+      summary: Update a team
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+    delete:
+      operationId: deleteTeam
+      tags: [teams]
+      summary: Deactivate a team
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deactivated
+
+  /teams/{teamId}/members:
+    post:
+      operationId: addTeamMember
+      tags: [teams]
+      summary: Add a member to a team
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamMemberInput"
+      responses:
+        "201":
+          description: Member added
+
+  /teams/{teamId}/members/{userId}:
+    delete:
+      operationId: removeTeamMember
+      tags: [teams]
+      summary: Remove a member from a team
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Removed
+
+  # ── IMPORTS ────────────────────────────────────────────────────────────────
+  /imports/upload:
+    post:
+      operationId: uploadImportFile
+      tags: [imports]
+      summary: Upload and parse an Excel or CSV file
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "201":
+          description: File parsed, preview ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportUploadResult"
+
+  /imports:
+    get:
+      operationId: listImports
+      tags: [imports]
+      summary: List import history for the tenant
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Import history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportList"
+
+  /imports/{importId}/mapping:
+    post:
+      operationId: saveImportMapping
+      tags: [imports]
+      summary: Save column mapping for an import
+      parameters:
+        - name: importId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportMappingInput"
+      responses:
+        "200":
+          description: Mapping saved
+
+  /imports/{importId}/validate:
+    post:
+      operationId: validateImport
+      tags: [imports]
+      summary: Run validation pass on a mapped import
+      parameters:
+        - name: importId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportValidationResult"
+
+  /imports/{importId}/execute:
+    post:
+      operationId: executeImport
+      tags: [imports]
+      summary: Start the import batch job
+      parameters:
+        - name: importId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Import started
+
+  /imports/{importId}/progress:
+    get:
+      operationId: getImportProgress
+      tags: [imports]
+      summary: Poll import progress
+      parameters:
+        - name: importId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportProgress"
+
+  /imports/{importId}:
+    get:
+      operationId: getImport
+      tags: [imports]
+      summary: Get single import detail
+      parameters:
+        - name: importId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Import detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportDetail"
+
+  /imports/{importId}/rows:
+    get:
+      operationId: listImportRows
+      tags: [imports]
+      summary: List row-level detail for an import
+      parameters:
+        - name: importId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: Import rows
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportRowList"
+
+  /imports/{importId}/rollback:
+    post:
+      operationId: rollbackImport
+      tags: [imports]
+      summary: Rollback a completed import
+      parameters:
+        - name: importId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Rolled back
+
+  /mapping-templates:
+    get:
+      operationId: listMappingTemplates
+      tags: [imports]
+      summary: List saved column-mapping templates for the tenant
+      responses:
+        "200":
+          description: Template list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MappingTemplate"
+
+  # ── JOBS ──────────────────────────────────────────────────────────────────
+  /jobs:
+    get:
+      operationId: listJobs
+      tags: [jobs]
+      summary: List jobs with optional filters
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 25 }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: priority
+          in: query
+          schema: { type: string }
+        - name: assetId
+          in: query
+          schema: { type: string }
+        - name: assignedUserId
+          in: query
+          schema: { type: string }
+        - name: assignedTeamId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Job list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobList"
+    post:
+      operationId: createJob
+      tags: [jobs]
+      summary: Create a new job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobInput"
+      responses:
+        "201":
+          description: Job created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /jobs/my:
+    get:
+      operationId: getMyJobs
+      tags: [jobs]
+      summary: Get open jobs assigned to current user
+      responses:
+        "200":
+          description: My jobs list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Job"
+
+  /jobs/{jobId}:
+    get:
+      operationId: getJob
+      tags: [jobs]
+      summary: Get job detail with comments and documents
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Job detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobDetail"
+    patch:
+      operationId: updateJob
+      tags: [jobs]
+      summary: Update job fields
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobUpdate"
+      responses:
+        "200":
+          description: Updated job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+    delete:
+      operationId: deleteJob
+      tags: [jobs]
+      summary: Soft delete a job
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+
+  /jobs/{jobId}/complete:
+    post:
+      operationId: completeJob
+      tags: [jobs]
+      summary: Mark job as completed
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notes: { type: string }
+      responses:
+        "200":
+          description: Job completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /jobs/{jobId}/cancel:
+    post:
+      operationId: cancelJob
+      tags: [jobs]
+      summary: Cancel a job
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Job cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /jobs/{jobId}/follow-on:
+    post:
+      operationId: createFollowOnJob
+      tags: [jobs]
+      summary: Create a follow-on job from an existing job
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobInput"
+      responses:
+        "201":
+          description: Follow-on job created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /jobs/{jobId}/comments:
+    post:
+      operationId: addJobComment
+      tags: [jobs]
+      summary: Add a comment to a job
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string }
+      responses:
+        "201":
+          description: Comment added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobComment"
+
+  # ── SERVICE RECORDS ────────────────────────────────────────────────────────
+  /service-records/upload:
+    post:
+      operationId: uploadServiceRecordFile
+      tags: [service-records]
+      summary: Upload and parse a service record file
+      parameters:
+        - name: x-filename
+          in: header
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "201":
+          description: File uploaded with parsed preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRecordUploadResult"
+
+  /service-records:
+    get:
+      operationId: listServiceRecords
+      tags: [service-records]
+      summary: List service records
+      parameters:
+        - name: assetId
+          in: query
+          schema: { type: string }
+        - name: complianceTypeId
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 25 }
+      responses:
+        "200":
+          description: Service record list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRecordList"
+    post:
+      operationId: createServiceRecord
+      tags: [service-records]
+      summary: Confirm and create a service record (triggers compliance update)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceRecordInput"
+      responses:
+        "201":
+          description: Service record created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRecordResult"
+
+  /service-records/{srId}:
+    get:
+      operationId: getServiceRecord
+      tags: [service-records]
+      summary: Get service record detail
+      parameters:
+        - name: srId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Service record detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRecord"
+
+  # ── DOCUMENTS ─────────────────────────────────────────────────────────────
+  /documents/upload:
+    post:
+      operationId: uploadDocument
+      tags: [documents]
+      summary: Upload a document or evidence file
+      parameters:
+        - name: x-filename
+          in: header
+          schema: { type: string }
+        - name: assetId
+          in: query
+          schema: { type: string }
+        - name: complianceItemId
+          in: query
+          schema: { type: string }
+        - name: jobId
+          in: query
+          schema: { type: string }
+        - name: serviceRecordId
+          in: query
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "201":
+          description: Document uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+
+  /documents:
+    get:
+      operationId: listDocuments
+      tags: [documents]
+      summary: List documents by context (assetId, jobId, etc.)
+      parameters:
+        - name: assetId
+          in: query
+          schema: { type: string }
+        - name: complianceItemId
+          in: query
+          schema: { type: string }
+        - name: jobId
+          in: query
+          schema: { type: string }
+        - name: serviceRecordId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Document list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Document"
+
+  /documents/{docId}:
+    get:
+      operationId: getDocument
+      tags: [documents]
+      summary: Get document metadata
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Document metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+    delete:
+      operationId: deleteDocument
+      tags: [documents]
+      summary: Soft-delete a document
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+
+  /documents/{docId}/download:
+    get:
+      operationId: downloadDocument
+      tags: [documents]
+      summary: Download or view a document file
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: inline
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: File stream
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+# ── COMPONENTS ────────────────────────────────────────────────────────────
 components:
   schemas:
     HealthStatus:
@@ -31,6 +1704,1406 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    # Auth
+    LoginInput:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    AuthResult:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/UserProfile"
+
+    ChangePasswordInput:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+
+    UserProfile:
+      type: object
+      required: [id, username, email, role, tenantId]
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: ["string", "null"]
+        lastName:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [super_admin, tenant_admin, compliance_manager, team_member, auditor]
+        tenantId:
+          type: ["string", "null"]
+        tenantName:
+          type: ["string", "null"]
+
+    # Tenants
+    TenantSettingsInput:
+      type: object
+      properties:
+        name:
+          type: string
+        contactEmail:
+          type: string
+        contactName:
+          type: string
+        notificationsEnabled:
+          type: boolean
+        notificationEmail:
+          type: ["string", "null"]
+
+    Tenant:
+      type: object
+      required: [id, name, slug, status, createdAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        status:
+          type: string
+          enum: [active, suspended, trial]
+        contactEmail:
+          type: ["string", "null"]
+        contactName:
+          type: ["string", "null"]
+        plan:
+          type: ["string", "null"]
+        maxAssets:
+          type: ["integer", "null"]
+        maxUsers:
+          type: ["integer", "null"]
+        notificationsEnabled:
+          type: boolean
+        notificationEmail:
+          type: ["string", "null"]
+        assetCount:
+          type: ["integer", "null"]
+        userCount:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+
+    TenantInput:
+      type: object
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        contactEmail:
+          type: string
+        contactName:
+          type: string
+        plan:
+          type: string
+        maxAssets:
+          type: integer
+        maxUsers:
+          type: integer
+
+    TenantUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        contactEmail:
+          type: string
+        contactName:
+          type: string
+        plan:
+          type: string
+        maxAssets:
+          type: integer
+        maxUsers:
+          type: integer
+        status:
+          type: string
+
+    TenantList:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tenant"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    TenantStats:
+      type: object
+      required: [tenantId, assetCount, userCount]
+      properties:
+        tenantId:
+          type: string
+        assetCount:
+          type: integer
+        userCount:
+          type: integer
+        complianceItemCount:
+          type: integer
+        overdueCount:
+          type: integer
+        lastImportAt:
+          type: ["string", "null"]
+
+    # Users
+    User:
+      type: object
+      required: [id, username, email, role, isActive, createdAt]
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: ["string", "null"]
+        lastName:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [super_admin, tenant_admin, compliance_manager, team_member, auditor]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+        lastLoginAt:
+          type: ["string", "null"]
+
+    UserInput:
+      type: object
+      required: [username, email, password, role]
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+          enum: [tenant_admin, compliance_manager, team_member, auditor]
+
+    UserUpdate:
+      type: object
+      properties:
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+
+    UserList:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    # Assets
+    Asset:
+      type: object
+      required: [id, tenantId, assetReference, assetType, status, createdAt]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        assetReference:
+          type: string
+        uprn:
+          type: ["string", "null"]
+        oldUprn:
+          type: ["string", "null"]
+        fullAddress:
+          type: ["string", "null"]
+        addressLine1:
+          type: ["string", "null"]
+        addressLine2:
+          type: ["string", "null"]
+        addressLine3:
+          type: ["string", "null"]
+        addressLine4:
+          type: ["string", "null"]
+        area:
+          type: ["string", "null"]
+        postCode:
+          type: ["string", "null"]
+        assetType:
+          type: string
+          enum: [house, flat, block, maisonette, bungalow, commercial, garage, communal, land, hmo, traveller_site, other]
+        propertySubtype:
+          type: ["string", "null"]
+        buildType:
+          type: ["string", "null"]
+        archetype:
+          type: ["string", "null"]
+        bedrooms:
+          type: ["integer", "null"]
+        heatingType:
+          type: ["string", "null"]
+        propertyCategory:
+          type: ["string", "null"]
+        residentType:
+          type: ["string", "null"]
+        parentAssetId:
+          type: ["string", "null"]
+        blockReference:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [active, archived, sold, demolished, inactive]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        complianceSummary:
+          $ref: "#/components/schemas/ComplianceSummary"
+
+    AssetDetail:
+      allOf:
+        - $ref: "#/components/schemas/Asset"
+        - type: object
+          properties:
+            complianceItems:
+              type: array
+              items:
+                $ref: "#/components/schemas/AssetComplianceItem"
+            childCount:
+              type: integer
+
+    AssetInput:
+      type: object
+      required: [assetType]
+      properties:
+        assetReference:
+          type: string
+        uprn:
+          type: string
+        oldUprn:
+          type: string
+        fullAddress:
+          type: string
+        addressLine1:
+          type: string
+        addressLine2:
+          type: string
+        addressLine3:
+          type: string
+        addressLine4:
+          type: string
+        area:
+          type: string
+        postCode:
+          type: string
+        assetType:
+          type: string
+          enum: [house, flat, block, maisonette, bungalow, commercial, garage, communal, land, hmo, traveller_site, other]
+        propertySubtype:
+          type: string
+        buildType:
+          type: string
+        archetype:
+          type: string
+        bedrooms:
+          type: integer
+        heatingType:
+          type: string
+        propertyCategory:
+          type: string
+        residentType:
+          type: string
+        parentAssetId:
+          type: string
+        blockReference:
+          type: string
+        notes:
+          type: string
+        complianceTypeIds:
+          type: array
+          items:
+            type: string
+          description: Optional compliance type IDs to create compliance items for atomically with the asset
+
+    AssetUpdate:
+      type: object
+      properties:
+        assetReference:
+          type: string
+        uprn:
+          type: string
+        fullAddress:
+          type: string
+        addressLine1:
+          type: string
+        addressLine2:
+          type: string
+        addressLine3:
+          type: string
+        area:
+          type: string
+        postCode:
+          type: string
+        assetType:
+          type: string
+        propertySubtype:
+          type: string
+        buildType:
+          type: string
+        archetype:
+          type: string
+        bedrooms:
+          type: integer
+        heatingType:
+          type: string
+        propertyCategory:
+          type: string
+        parentAssetId:
+          type: string
+        blockReference:
+          type: string
+        status:
+          type: string
+        notes:
+          type: string
+
+    AssetList:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Asset"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    ComplianceSummary:
+      type: object
+      properties:
+        total:
+          type: integer
+        compliant:
+          type: integer
+        dueSoon:
+          type: integer
+        overdue:
+          type: integer
+        failed:
+          type: integer
+        notApplicable:
+          type: integer
+
+    # Compliance Types
+    CustomFieldDefinition:
+      type: object
+      required: [key, label]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+
+    CustomFieldLabelUpdate:
+      type: object
+      required: [label]
+      properties:
+        label:
+          type: string
+
+    ComplianceType:
+      type: object
+      required: [id, name, code, isActive]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: ["string", "null"]
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: ["string", "null"]
+        frequencyMonths:
+          type: ["integer", "null"]
+        dueSoonDays:
+          type: integer
+        isActive:
+          type: boolean
+        isSystem:
+          type: boolean
+        color:
+          type: ["string", "null"]
+        applicableAssetTypes:
+          type: array
+          nullable: true
+          items:
+            type: string
+        customFieldDefinitions:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/CustomFieldDefinition"
+
+    ComplianceTypeInput:
+      type: object
+      required: [name, code]
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+        frequencyMonths:
+          type: integer
+        dueSoonDays:
+          type: integer
+        color:
+          type: string
+
+    ComplianceTypeUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        frequencyMonths:
+          type: integer
+        dueSoonDays:
+          type: integer
+        isActive:
+          type: boolean
+        color:
+          type: string
+        applicableAssetTypes:
+          type: array
+          nullable: true
+          items:
+            type: string
+
+    BulkComplianceItemsInput:
+      type: object
+      required: [complianceTypeIds]
+      properties:
+        complianceTypeIds:
+          type: array
+          items:
+            type: string
+
+    BulkAssignInput:
+      type: object
+      required: [complianceTypeIds, assetTypes]
+      properties:
+        complianceTypeIds:
+          type: array
+          items:
+            type: string
+        assetTypes:
+          type: array
+          items:
+            type: string
+        activeOnly:
+          type: boolean
+          default: true
+        preview:
+          type: boolean
+          default: false
+
+    BulkAssignResult:
+      type: object
+      required: [created, skipped]
+      properties:
+        created:
+          type: integer
+        skipped:
+          type: integer
+
+    BulkAssignPreview:
+      type: object
+      required: [count]
+      properties:
+        count:
+          type: integer
+
+    ComplianceItemList:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetComplianceItemEnriched"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    AssetComplianceItemEnriched:
+      type: object
+      required: [id, assetId, complianceTypeId, isEnabled, status]
+      properties:
+        id:
+          type: string
+        assetId:
+          type: string
+        assetReference:
+          type: string
+        fullAddress:
+          type: ["string", "null"]
+        addressLine1:
+          type: ["string", "null"]
+        postCode:
+          type: ["string", "null"]
+        complianceTypeId:
+          type: string
+        complianceTypeName:
+          type: string
+        complianceTypeCode:
+          type: string
+        complianceTypeColor:
+          type: ["string", "null"]
+        isEnabled:
+          type: boolean
+        status:
+          type: string
+          enum: [compliant, due_soon, overdue, failed, not_applicable, awaiting_evidence, follow_on_required]
+        lastInspectionDate:
+          type: ["string", "null"]
+        nextDueDate:
+          type: ["string", "null"]
+        expiryDate:
+          type: ["string", "null"]
+        certificateRef:
+          type: ["string", "null"]
+        contractor:
+          type: ["string", "null"]
+        condition:
+          type: ["string", "null"]
+        followOnRequired:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        riskLevel:
+          type: ["string", "null"]
+        updatedAt:
+          type: ["string", "null"]
+
+    # Asset Compliance Items
+    AssetComplianceItem:
+      type: object
+      required: [id, assetId, complianceTypeId, isEnabled, status]
+      properties:
+        id:
+          type: string
+        assetId:
+          type: string
+        complianceTypeId:
+          type: string
+        complianceTypeName:
+          type: string
+        complianceTypeCode:
+          type: string
+        complianceTypeColor:
+          type: ["string", "null"]
+        isEnabled:
+          type: boolean
+        status:
+          type: string
+          enum: [compliant, due_soon, overdue, failed, not_applicable, awaiting_evidence, follow_on_required]
+        lastInspectionDate:
+          type: ["string", "null"]
+        nextDueDate:
+          type: ["string", "null"]
+        expiryDate:
+          type: ["string", "null"]
+        certificateRef:
+          type: ["string", "null"]
+        contractor:
+          type: ["string", "null"]
+        condition:
+          type: ["string", "null"]
+        followOnRequired:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        riskLevel:
+          type: ["string", "null"]
+        updatedAt:
+          type: ["string", "null"]
+
+    # Compliance Records
+    ComplianceRecord:
+      type: object
+      required: [id, complianceItemId, status, source, createdAt]
+      properties:
+        id:
+          type: string
+        complianceItemId:
+          type: string
+        status:
+          type: string
+        inspectionDate:
+          type: ["string", "null"]
+        nextDueDate:
+          type: ["string", "null"]
+        expiryDate:
+          type: ["string", "null"]
+        certificateRef:
+          type: ["string", "null"]
+        contractor:
+          type: ["string", "null"]
+        condition:
+          type: ["string", "null"]
+        followOnRequired:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        source:
+          type: string
+          enum: [manual_edit, excel_import, service_record_upload, system_automation]
+        createdBy:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    ComplianceRecordInput:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [compliant, due_soon, overdue, failed, not_applicable, awaiting_evidence, follow_on_required]
+        inspectionDate:
+          type: string
+        nextDueDate:
+          type: string
+        expiryDate:
+          type: string
+        certificateRef:
+          type: string
+        contractor:
+          type: string
+        condition:
+          type: string
+        followOnRequired:
+          type: boolean
+        notes:
+          type: string
+        riskLevel:
+          type: string
+
+    ComplianceRecordList:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceRecord"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    # History
+    HistoryEntry:
+      type: object
+      required: [id, entityType, entityId, action, source, createdAt]
+      properties:
+        id:
+          type: string
+        entityType:
+          type: string
+        entityId:
+          type: string
+        action:
+          type: string
+        previousState:
+          type: ["object", "null"]
+        newState:
+          type: ["object", "null"]
+        changedFields:
+          type: array
+          items:
+            type: string
+        source:
+          type: string
+          enum: [manual_edit, excel_import, service_record_upload, system_automation]
+        actorId:
+          type: ["string", "null"]
+        actorName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    # Dashboard
+    DashboardSummary:
+      type: object
+      required: [totalAssets, totalCompliance, compliant, dueSoon, overdue, failed]
+      properties:
+        totalAssets:
+          type: integer
+        totalCompliance:
+          type: integer
+        compliant:
+          type: integer
+        dueSoon:
+          type: integer
+        overdue:
+          type: integer
+        failed:
+          type: integer
+        notApplicable:
+          type: integer
+        followOnRequired:
+          type: integer
+        assetsByType:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetTypeCount"
+
+    ComplianceStatusBreakdown:
+      type: object
+      required: [complianceTypeId, complianceTypeName, compliant, dueSoon, overdue, failed, total]
+      properties:
+        complianceTypeId:
+          type: string
+        complianceTypeName:
+          type: string
+        complianceTypeCode:
+          type: string
+        complianceTypeColor:
+          type: ["string", "null"]
+        compliant:
+          type: integer
+        dueSoon:
+          type: integer
+        overdue:
+          type: integer
+        failed:
+          type: integer
+        notApplicable:
+          type: integer
+        total:
+          type: integer
+
+    AssetTypeCount:
+      type: object
+      required: [assetType, count]
+      properties:
+        assetType:
+          type: string
+        count:
+          type: integer
+
+    OverdueItem:
+      type: object
+      required: [itemId, assetId, assetReference, complianceTypeName, nextDueDate, daysOverdue, status]
+      properties:
+        itemId:
+          type: string
+        assetId:
+          type: string
+        assetReference:
+          type: string
+        fullAddress:
+          type: ["string", "null"]
+        complianceTypeName:
+          type: string
+        complianceTypeCode:
+          type: string
+        complianceTypeColor:
+          type: ["string", "null"]
+        nextDueDate:
+          type: string
+        daysOverdue:
+          type: integer
+        status:
+          type: string
+        contractor:
+          type: ["string", "null"]
+
+    DueSoonItem:
+      type: object
+      required: [itemId, assetId, assetReference, complianceTypeName, nextDueDate, daysUntilDue]
+      properties:
+        itemId:
+          type: string
+        assetId:
+          type: string
+        assetReference:
+          type: string
+        fullAddress:
+          type: ["string", "null"]
+        complianceTypeName:
+          type: string
+        complianceTypeCode:
+          type: string
+        complianceTypeColor:
+          type: ["string", "null"]
+        nextDueDate:
+          type: string
+        daysUntilDue:
+          type: integer
+        status:
+          type: string
+
+    # Audit Logs
+    AuditLog:
+      type: object
+      required: [id, action, entityType, createdAt]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: ["string", "null"]
+        userId:
+          type: ["string", "null"]
+        actorName:
+          type: ["string", "null"]
+        action:
+          type: string
+        entityType:
+          type: string
+        entityId:
+          type: ["string", "null"]
+        details:
+          type: ["object", "null"]
+        ipAddress:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    AuditLogList:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditLog"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    # Teams
+    TeamMember:
+      type: object
+      required: [id, userId, isLead]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        isLead:
+          type: boolean
+        firstName:
+          type: ["string", "null"]
+        lastName:
+          type: ["string", "null"]
+        username:
+          type: string
+        email:
+          type: string
+
+    Team:
+      type: object
+      required: [id, tenantId, name, isActive, createdAt]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamMember"
+
+    TeamInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    TeamMemberInput:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+        isLead:
+          type: boolean
+
+    ImportMappingInput:
+      type: object
+      required: [mapping]
+      properties:
+        mapping:
+          type: object
+        matchKey:
+          type: string
+        saveAs:
+          type: string
+
+    # Imports
+    ImportSummary:
+      type: object
+      required: [id, tenantId, originalName, status, createdAt]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        originalName:
+          type: string
+        filename:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, complete, failed, rolled_back]
+        matchKey:
+          type: ["string", "null"]
+        totalRows:
+          type: ["integer", "null"]
+        processedRows:
+          type: integer
+        createdCount:
+          type: integer
+        updatedCount:
+          type: integer
+        skippedCount:
+          type: integer
+        errorCount:
+          type: integer
+        createdAt:
+          type: string
+        completedAt:
+          type: ["string", "null"]
+
+    ImportList:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportSummary"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    ImportUploadResult:
+      type: object
+      required: [importId, filename, totalRows, headers, assetFields]
+      properties:
+        importId:
+          type: string
+        filename:
+          type: string
+        totalRows:
+          type: integer
+        headers:
+          type: array
+          items:
+            type: string
+        previewRows:
+          type: array
+          items:
+            type: object
+        assetFields:
+          type: array
+          items:
+            type: string
+
+    ImportValidationResult:
+      type: object
+      required: [valid, totalRows, errorCount]
+      properties:
+        valid:
+          type: boolean
+        totalRows:
+          type: integer
+        errorCount:
+          type: integer
+        rowErrors:
+          type: array
+          items:
+            type: object
+
+    ImportDetail:
+      type: object
+      required: [id, tenantId, originalName, status, createdAt]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        originalName:
+          type: string
+        filename:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, complete, failed, rolled_back]
+        mappingConfig:
+          type: object
+        mappingTemplateName:
+          type: ["string", "null"]
+        matchKey:
+          type: ["string", "null"]
+        totalRows:
+          type: ["integer", "null"]
+        processedRows:
+          type: integer
+        createdCount:
+          type: integer
+        updatedCount:
+          type: integer
+        skippedCount:
+          type: integer
+        errorCount:
+          type: integer
+        createdAt:
+          type: string
+        completedAt:
+          type: ["string", "null"]
+        rolledBackAt:
+          type: ["string", "null"]
+
+    ImportRow:
+      type: object
+      required: [id, importId, rowNumber, rawData, status, createdAt]
+      properties:
+        id:
+          type: string
+        importId:
+          type: string
+        rowNumber:
+          type: integer
+        rawData:
+          type: object
+        mappedData:
+          type: object
+        status:
+          type: string
+          enum: [pending, created, updated, skipped, error]
+        errorMessage:
+          type: ["string", "null"]
+        assetId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    ImportRowList:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportRow"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    ImportProgress:
+      type: object
+      required: [importId, status, totalRows, processedRows]
+      properties:
+        importId:
+          type: string
+        status:
+          type: string
+        totalRows:
+          type: integer
+        processedRows:
+          type: integer
+        createdCount:
+          type: integer
+        updatedCount:
+          type: integer
+        skippedCount:
+          type: integer
+        errorCount:
+          type: integer
+        completedAt:
+          type: ["string", "null"]
+
+    MappingTemplate:
+      type: object
+      required: [id, tenantId, name, mappingConfig, createdAt]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        name:
+          type: string
+        mappingConfig:
+          type: object
+        createdAt:
+          type: string
+
+    Job:
+      type: object
+      required: [id, tenantId, title, priority, status, createdAt]
+      properties:
+        id: { type: string }
+        tenantId: { type: string }
+        title: { type: string }
+        description: { type: ["string", "null"] }
+        assetId: { type: ["string", "null"] }
+        complianceItemId: { type: ["string", "null"] }
+        assignedUserId: { type: ["string", "null"] }
+        assignedTeamId: { type: ["string", "null"] }
+        priority: { type: string, enum: [low, medium, high, critical] }
+        dueDate: { type: ["string", "null"] }
+        status: { type: string, enum: [open, assigned, in_progress, awaiting_evidence, completed, cancelled] }
+        completionDate: { type: ["string", "null"] }
+        completionNotes: { type: ["string", "null"] }
+        parentJobId: { type: ["string", "null"] }
+        createdBy: { type: string }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        asset: { type: ["object", "null"] }
+        assignee: { type: ["object", "null"] }
+
+    JobDetail:
+      allOf:
+        - $ref: "#/components/schemas/Job"
+        - type: object
+          properties:
+            comments:
+              type: array
+              items:
+                $ref: "#/components/schemas/JobComment"
+            documents:
+              type: array
+              items:
+                $ref: "#/components/schemas/Document"
+            followOnJobs:
+              type: array
+              items:
+                $ref: "#/components/schemas/Job"
+
+    JobList:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Job"
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    JobInput:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string }
+        description: { type: string }
+        assetId: { type: string }
+        complianceItemId: { type: string }
+        assignedUserId: { type: string }
+        assignedTeamId: { type: string }
+        priority: { type: string, enum: [low, medium, high, critical] }
+        dueDate: { type: string }
+        parentJobId: { type: string }
+
+    JobUpdate:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string }
+        assignedUserId: { type: string }
+        assignedTeamId: { type: string }
+        priority: { type: string }
+        dueDate: { type: string }
+        status: { type: string }
+        completionNotes: { type: string }
+
+    JobComment:
+      type: object
+      required: [id, jobId, userId, body, createdAt]
+      properties:
+        id: { type: string }
+        jobId: { type: string }
+        tenantId: { type: string }
+        userId: { type: string }
+        body: { type: string }
+        createdAt: { type: string }
+        user: { type: ["object", "null"] }
+
+    ServiceRecord:
+      type: object
+      required: [id, tenantId, assetId, status, createdAt]
+      properties:
+        id: { type: string }
+        tenantId: { type: string }
+        assetId: { type: string }
+        complianceTypeId: { type: ["string", "null"] }
+        serviceDate: { type: ["string", "null"] }
+        expiryDate: { type: ["string", "null"] }
+        engineerName: { type: ["string", "null"] }
+        certificateRef: { type: ["string", "null"] }
+        outcome: { type: ["string", "null"], enum: [pass, fail, follow_on_required, null] }
+        notes: { type: ["string", "null"] }
+        status: { type: string }
+        createdAt: { type: string }
+        asset: { type: ["object", "null"] }
+        complianceType: { type: ["object", "null"] }
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Document"
+
+    ServiceRecordList:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceRecord"
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    ServiceRecordInput:
+      type: object
+      required: [assetId]
+      properties:
+        assetId: { type: string }
+        complianceTypeId: { type: string }
+        serviceDate: { type: string }
+        expiryDate: { type: string }
+        engineerName: { type: string }
+        certificateRef: { type: string }
+        outcome: { type: string, enum: [pass, fail, follow_on_required] }
+        notes: { type: string }
+        filePath: { type: string }
+
+    ServiceRecordResult:
+      type: object
+      properties:
+        serviceRecord:
+          $ref: "#/components/schemas/ServiceRecord"
+        complianceUpdate:
+          type: ["object", "null"]
+          properties:
+            newStatus: { type: string }
+            nextDueDate: { type: ["string", "null"] }
+        followOnRequired: { type: boolean }
+
+    ServiceRecordUploadResult:
+      type: object
+      properties:
+        filePath: { type: string }
+        storedName: { type: string }
+        parsed:
+          type: object
+          properties:
+            certificateRef: { type: string }
+            engineerName: { type: string }
+            serviceDate: { type: string }
+            expiryDate: { type: string }
+            outcome: { type: string }
+
+    Document:
+      type: object
+      required: [id, tenantId, fileName, filePath, fileType, uploadedBy, createdAt]
+      properties:
+        id: { type: string }
+        tenantId: { type: string }
+        assetId: { type: ["string", "null"] }
+        complianceItemId: { type: ["string", "null"] }
+        jobId: { type: ["string", "null"] }
+        serviceRecordId: { type: ["string", "null"] }
+        fileName: { type: string }
+        filePath: { type: string }
+        fileType: { type: string }
+        fileSize: { type: ["integer", "null"] }
+        uploadedBy: { type: string }
+        createdAt: { type: string }
+        deletedAt: { type: ["string", "null"] }

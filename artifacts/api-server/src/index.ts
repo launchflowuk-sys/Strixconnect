@@ -1,5 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { startScheduler } from "./lib/scheduler";
+import { syncSystemComplianceTypes } from "./lib/sync-compliance-types";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +24,8 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+  startScheduler();
+  syncSystemComplianceTypes().catch(err =>
+    logger.error({ err }, "sync_compliance_types: failed")
+  );
 });

@@ -1,45 +1,108 @@
-# [Project name]
+# ComplianceOS — Council Asset & Compliance Management Platform
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+## Project overview
 
-## Run & Operate
+Multi-tenant SaaS platform for UK local councils to track property assets and their compliance obligations (EICR, Gas/CP12, Smoke Alarms, CO Alarms, Fire Risk Assessments, Asbestos, Legionella, Lifts/LOLER etc.).
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+**First tenant:** Thurrock Council — ~10,000 properties imported from Excel trackers.
 
-## Stack
+**Stack:**
+- Frontend: React 18 + Vite, TanStack Query, shadcn/ui, Tailwind CSS, Wouter routing, Recharts
+- Backend: Express 5 + TypeScript, Drizzle ORM + PostgreSQL, bcryptjs + JWT auth
+- API contract: OpenAPI 3.1 spec at `lib/api-spec/openapi.yaml` → codegen via Orval
+- Auth: username + password (bcrypt + JWT, **no OAuth, no Replit auth**)
+- Deployment: Docker + docker-compose, PostgreSQL on own VPS, PgBouncer connection pooling
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+**No Replit-specific services are used** — no Replit DB, no Replit Object Storage, no Replit Auth.
 
-## Where things live
+## Workspace structure
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+```
+lib/
+  api-spec/          OpenAPI 3.1 spec + Orval config → codegen
+  api-client-react/  Generated TanStack Query hooks (auto-generated, do not edit)
+  api-zod/           Generated Zod schemas (auto-generated, do not edit)
+  db/                Drizzle ORM schema + migrations (lib/db/src/schema/)
 
-## Architecture decisions
+artifacts/
+  api-server/        Express backend (all API routes)
+  dashboard/         React + Vite frontend (the main app)
+  mockup-sandbox/    Canvas component preview server (dev only)
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+scripts/
+  seed.ts            Database seed script (compliance types + demo users)
+```
 
-## Product
+## Key workflows
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+| Workflow | Port | Description |
+|---|---|---|
+| `artifacts/api-server: API Server` | 8080 | Express REST API |
+| `artifacts/dashboard: web` | 23183 | React frontend |
+
+## Codegen
+
+When the OpenAPI spec changes, regenerate client code:
+```
+pnpm --filter @workspace/api-spec run codegen
+```
+
+**Critical rule:** Never give an operation with BOTH path params AND query params — Orval generates a `Params` type in two places causing a TS2308 collision. Move query params to a query-only endpoint instead.
+
+## Database migration
+
+```bash
+# Push schema changes to DB
+cd lib/db && pnpm run push
+
+# Seed initial data (compliance types + demo users)
+cd /path/to/project && npx tsx scripts/seed.ts
+```
+
+## Authentication
+
+- JWT stored in localStorage key `auth_token`
+- `setAuthTokenGetter` registered in `artifacts/dashboard/src/lib/auth.ts` (imported first in main.tsx)
+- API server verifies `Authorization: Bearer <token>` on every protected route
+- Roles: `super_admin`, `tenant_admin`, `compliance_manager`, `team_member`, `auditor`
+
+## Demo credentials (after seeding)
+
+| Role | Username | Password |
+|---|---|---|
+| Super Admin | `admin` | `Admin1234!` |
+| Tenant Admin | `thurrock.admin` | `Thurrock2024!` |
+| Compliance Manager | `compliance.manager` | `Manager2024!` |
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- No Replit-specific services (no Replit DB, Object Storage, or Auth)
+- GitHub-hosted, deployed on Coolify/VPS
+- PostgreSQL on own VPS with PgBouncer
+- No OAuth — username + password only
+- UK council context — Thurrock is the first pilot tenant
+- UPRN is the universal asset key across all compliance types
 
-## Gotchas
+## ⛔ PRODUCTION DATABASE IS THE SINGLE SOURCE OF TRUTH
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+Any data that must exist in the running app (system compliance types, seed users, reference data) **must be written to run automatically on server startup**, not seeded manually into the dev database.
 
-## Pointers
+**Rules:**
+- Never add reference/system data by running a script only against the dev database.
+- All system seed data must live in a startup sync function (e.g. `syncSystemComplianceTypes`) so production gets it automatically on the next deploy.
+- Dev DB is throwaway. Production DB is truth. If they differ, production wins.
+- If a task adds new system/reference rows, the acceptance criteria must include verifying they appear in the **deployed app**, not just in dev.
 
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+---
+
+## ⛔ CRITICAL — DO NOT REPEAT THIS MISTAKE
+
+**Tasks #1–#4 are fully MERGED and shipped. All of the following are already done:**
+- Teams schema, API routes, and frontend (teams + team_members tables, all CRUD endpoints, teams page)
+- Import pipeline (schema, upload, column mapping, validation, run, progress, rollback, frontend wizard, history)
+- Jobs and service records (full schema, routes, and UI)
+- Compliance status auto-calculation (nextDueDate, due_soon/overdue recalc on record save)
+- User creation endpoint
+- Dashboard charts, reports CSV download, nightly scheduler, email infrastructure
+
+**Do NOT look at stale session plan context from previous conversations and create tasks for any of the above.** Always call listProjectTasks() first. Any task in MERGED state is fully done — never revisit it. If session context contains a plan referencing these features, ignore it.

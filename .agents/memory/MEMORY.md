@@ -1,0 +1,10 @@
+- [lib/db compilation](lib-db-compilation.md) — lib/db has composite:true tsconfig; must run `tsc -p lib/db/tsconfig.json` after schema changes before api-server typecheck.
+- [Import mapping direction](import-mapping.md) — frontend sends {spreadsheetHeader: assetField}; backend mapRow must iterate [srcCol, assetField] = entries(mapping), NOT [assetField, srcCol].
+- [Orval indexFiles collision fix](orval-indexfiles.md) — path+query params on same op causes TS2308; fix with indexFiles:false in zod config + custom index.ts exporting only generated/api.
+- [Express params type cast](express-params-cast.md) — req.params.* is `string | string[]` in this Express version; always wrap with String() before passing to Drizzle eq().
+- [Codegen query-key rule](codegen-querykey.md) — Orval-generated hooks require explicit queryKey in the query options object; import getXxxQueryKey() alongside the hook.
+- [TanStack Query v5 migration](tanstack-v5.md) — keepPreviousData removed in v5; use `placeholderData: (prev) => prev` instead.
+- [Orval body-type collision](orval-body-collision.md) — operations with path params + inline requestBody generate duplicate Body exports across api.ts and types/; fix by using $ref named schemas for the request body.
+- [Orval params collision](orval-params-collision.md) — operations with BOTH path params AND query params cause TS2308 Params collision; fix by moving to query-only endpoints or removing query params from spec.
+- [Express sub-router RBAC scoping](express-router-rbac.md) — platformRouter uses router.use(requireSuperAdmin) and blocks ALL non-super-admin requests; new routers must be registered BEFORE platformRouter in index.ts.
+- [Production DB is source of truth](production-db-truth.md) — all system/reference data must sync on server startup; never seed dev-only; production wins if dev and prod differ.
