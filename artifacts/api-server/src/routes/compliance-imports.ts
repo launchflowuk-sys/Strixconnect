@@ -121,7 +121,7 @@ function pickDataSheetIndex(XLSX: any, sheetNames: string[], buf: Buffer): numbe
     const wb2 = XLSX.read(buf, { type: "buffer", raw: true, cellDates: false, sheets: i });
     const ws = wb2.Sheets[sheetNames[i]];
     if (!ws) continue;
-    const [row] = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: "", raw: true, range: 0 });
+    const [row] = XLSX.utils.sheet_to_json(ws, { defval: "", raw: true, range: 0 }) as Record<string, string>[];
     if (!row) continue;
     if (Object.keys(row).some(k => uprnKeys.has(nh(k)))) return i;
   }

@@ -350,7 +350,7 @@ router.delete("/jobs/:jobId", requireRole("tenant_admin", "compliance_manager"),
   const tenantId = tid(req);
   try {
     const [existing] = await db.select().from(jobs)
-      .where(and(eq(jobs.id, req.params.jobId), eq(jobs.tenantId, tenantId), isNull(jobs.deletedAt)));
+      .where(and(eq(jobs.id, String(req.params.jobId)), eq(jobs.tenantId, tenantId), isNull(jobs.deletedAt)));
     if (!existing) { res.status(404).json({ error: "Job not found" }); return; }
 
     await db.update(jobs).set({ deletedAt: new Date(), updatedAt: new Date() })

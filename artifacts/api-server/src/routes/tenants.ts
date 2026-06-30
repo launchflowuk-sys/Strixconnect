@@ -69,7 +69,7 @@ router.get("/tenants/:tenantId", requireAuth, requireSuperAdmin, async (req, res
     const [tenant] = await db
       .select()
       .from(tenants)
-      .where(eq(tenants.id, req.params.tenantId));
+      .where(eq(tenants.id, String(req.params.tenantId)));
     if (!tenant) {
       res.status(404).json({ error: "Tenant not found" });
       return;
@@ -98,7 +98,7 @@ router.patch("/tenants/:tenantId", requireAuth, requireSuperAdmin, async (req, r
         ...(status !== undefined && { status }),
         updatedAt: new Date(),
       })
-      .where(eq(tenants.id, req.params.tenantId))
+      .where(eq(tenants.id, String(req.params.tenantId)))
       .returning();
     if (!tenant) {
       res.status(404).json({ error: "Tenant not found" });
@@ -116,7 +116,7 @@ router.post("/tenants/:tenantId/suspend", requireAuth, requireSuperAdmin, async 
     await db
       .update(tenants)
       .set({ status: "suspended", updatedAt: new Date() })
-      .where(eq(tenants.id, req.params.tenantId));
+      .where(eq(tenants.id, String(req.params.tenantId)));
     res.json({ success: true });
   } catch (err) {
     req.log.error(err);
@@ -129,7 +129,7 @@ router.post("/tenants/:tenantId/activate", requireAuth, requireSuperAdmin, async
     await db
       .update(tenants)
       .set({ status: "active", updatedAt: new Date() })
-      .where(eq(tenants.id, req.params.tenantId));
+      .where(eq(tenants.id, String(req.params.tenantId)));
     res.json({ success: true });
   } catch (err) {
     req.log.error(err);
@@ -138,7 +138,7 @@ router.post("/tenants/:tenantId/activate", requireAuth, requireSuperAdmin, async
 });
 
 router.get("/tenants/:tenantId/stats", requireAuth, requireSuperAdmin, async (req, res) => {
-  const tid = req.params.tenantId;
+  const tid = String(req.params.tenantId);
   try {
     const [assetCount] = await db.select({ c: count() }).from(assets).where(eq(assets.tenantId, tid));
     const [userCount] = await db.select({ c: count() }).from(tenantUsers).where(eq(tenantUsers.tenantId, tid));
