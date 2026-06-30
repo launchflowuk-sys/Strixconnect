@@ -122,7 +122,7 @@ export function CertificateUploadDialog({
     try {
       const buf = await file.arrayBuffer();
       const headers: Record<string, string> = {
-        "x-filename": file.name,
+        "x-filename": encodeURIComponent(file.name),
         "Content-Type": "application/octet-stream",
         Authorization: `Bearer ${getToken()}`,
       };

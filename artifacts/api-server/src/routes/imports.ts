@@ -298,7 +298,7 @@ router.post("/imports/upload", requireRole("tenant_admin", "compliance_manager")
   const tenantId = tid(req);
   if (!tenantId) { res.status(400).json({ error: "No tenant context — super admins must specify a tenantId" }); return; }
   try {
-    const rawFilename = (req.headers["x-filename"] as string) || "upload.csv";
+    const rawFilename = decodeURIComponent((req.headers["x-filename"] as string) || "upload.csv");
     // Security: strip to basename only, reject path traversal / control chars
     const filename = path.basename(rawFilename).replace(/[/\\<>:"|?*\x00-\x1f]/g, "_");
     if (!filename || filename === "." || filename === "..") {

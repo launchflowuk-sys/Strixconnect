@@ -143,7 +143,7 @@ async function uploadToObjectStorage(buf: Buffer, filename: string, mimeType: st
 router.post("/documents/upload", async (req: any, res) => {
   const tenantId = tid(req);
   try {
-    const rawFilename = (req.headers["x-filename"] as string) || "document";
+    const rawFilename = decodeURIComponent((req.headers["x-filename"] as string) || "document");
     const filename = path.basename(rawFilename).replace(/[/\\<>:"|?*\x00-\x1f]/g, "_") || "upload";
 
     if (!isAllowedFileType(filename)) {
@@ -376,7 +376,7 @@ router.post("/compliance-records/:recordId/documents", async (req: any, res) => 
       .where(and(eq(complianceRecords.id, recordId), eq(complianceRecords.tenantId, tenantId)));
     if (!record) { res.status(404).json({ error: "Compliance record not found" }); return; }
 
-    const rawFilename = (req.headers["x-filename"] as string) || "document";
+    const rawFilename = decodeURIComponent((req.headers["x-filename"] as string) || "document");
     const filename = path.basename(rawFilename).replace(/[/\\<>:"|?*\x00-\x1f]/g, "_") || "upload";
 
     if (!isAllowedFileType(filename)) {
@@ -482,7 +482,7 @@ router.post("/assets/:assetId/documents", async (req: any, res) => {
       .where(and(eq(assets.id, assetId), eq(assets.tenantId, tenantId), isNull(assets.deletedAt)));
     if (!asset) { res.status(404).json({ error: "Asset not found" }); return; }
 
-    const rawFilename = (req.headers["x-filename"] as string) || "document";
+    const rawFilename = decodeURIComponent((req.headers["x-filename"] as string) || "document");
     const filename = path.basename(rawFilename).replace(/[/\\<>:"|?*\x00-\x1f]/g, "_") || "upload";
 
     if (!isAllowedFileType(filename)) {

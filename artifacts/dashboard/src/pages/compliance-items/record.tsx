@@ -42,7 +42,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 async function uploadFile(recordId: string, file: File): Promise<void> {
   const res = await fetch(`/api/compliance-records/${recordId}/documents`, {
     method: "POST",
-    headers: { "X-Filename": file.name, "Content-Type": file.type },
+    headers: { "X-Filename": encodeURIComponent(file.name), "Content-Type": file.type },
     body: file,
     credentials: "include",
   });

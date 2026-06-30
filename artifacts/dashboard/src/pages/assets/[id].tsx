@@ -117,7 +117,7 @@ export default function AssetDetailPage() {
       const res = await fetch(`/api/assets/${id}/documents`, {
         method: "POST",
         headers: {
-          "x-filename": file.name,
+          "x-filename": encodeURIComponent(file.name),
           "Content-Type": "application/octet-stream",
           Authorization: `Bearer ${getToken()}`,
         },

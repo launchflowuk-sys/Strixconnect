@@ -435,7 +435,7 @@ router.post(
       }
 
       // Save uploaded file
-      const rawFilename = (req.headers["x-filename"] as string) || "upload.xlsx";
+      const rawFilename = decodeURIComponent((req.headers["x-filename"] as string) || "upload.xlsx");
       const filename = path.basename(rawFilename).replace(/[/\\<>:"|?*\x00-\x1f]/g, "_");
       const uploadDir = path.join(os.tmpdir(), "compliance-imports", tenantId);
       await fs.mkdir(uploadDir, { recursive: true });

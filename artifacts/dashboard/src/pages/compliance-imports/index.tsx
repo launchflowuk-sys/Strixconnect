@@ -87,7 +87,7 @@ export default function ComplianceImportsPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/octet-stream",
-          "x-filename": file.name,
+          "x-filename": encodeURIComponent(file.name),
           Authorization: `Bearer ${token}`,
         },
         body: file,

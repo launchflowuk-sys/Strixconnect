@@ -109,7 +109,7 @@ export default function JobDetailPage() {
       const res = await fetch(`/api/documents/upload?jobId=${id}`, {
         method: "POST",
         headers: {
-          "x-filename": file.name,
+          "x-filename": encodeURIComponent(file.name),
           "Content-Type": "application/octet-stream",
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },

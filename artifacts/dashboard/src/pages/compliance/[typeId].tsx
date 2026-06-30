@@ -151,7 +151,7 @@ function ImportDialog({
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/octet-stream",
-          "x-filename": file.name,
+          "x-filename": encodeURIComponent(file.name),
         },
         body: file,
       });

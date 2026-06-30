@@ -56,7 +56,7 @@ export default function ServiceRecordUploadPage() {
       const res = await fetch("/api/service-records/upload", {
         method: "POST",
         headers: {
-          "x-filename": file.name,
+          "x-filename": encodeURIComponent(file.name),
           "Content-Type": "application/octet-stream",
           Authorization: `Bearer ${getToken()}`,
         },

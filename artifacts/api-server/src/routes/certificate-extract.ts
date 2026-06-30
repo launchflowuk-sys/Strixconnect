@@ -597,7 +597,7 @@ function guessMimeFromPath(fname: string): string {
 router.post("/certificate-extract", async (req: any, res) => {
   const tenantId = tid(req);
   try {
-    const rawFilename = (req.headers["x-filename"] as string) || "certificate.pdf";
+    const rawFilename = decodeURIComponent((req.headers["x-filename"] as string) || "certificate.pdf");
     const filename = path.basename(rawFilename).replace(/[/\\<>:"|?*\x00-\x1f]/g, "_") || "upload";
 
     if (!isAllowedFileType(filename)) {

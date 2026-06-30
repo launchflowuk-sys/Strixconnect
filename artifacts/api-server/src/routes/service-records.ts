@@ -110,7 +110,7 @@ async function syncComplianceItem(
 router.post("/service-records/upload", async (req: any, res) => {
   const tenantId = tid(req);
   try {
-    const rawFilename = (req.headers["x-filename"] as string) || "service_record.pdf";
+    const rawFilename = decodeURIComponent((req.headers["x-filename"] as string) || "service_record.pdf");
     const filename = require("path").basename(rawFilename)
       .replace(/[/\\<>:"|?*\x00-\x1f]/g, "_") || "upload";
 

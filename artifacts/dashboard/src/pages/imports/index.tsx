@@ -216,7 +216,7 @@ export default function ImportsPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/octet-stream",
-          "x-filename": file.name,
+          "x-filename": encodeURIComponent(file.name),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: file,

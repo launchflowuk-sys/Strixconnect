@@ -189,7 +189,7 @@ export function BulkCertificateUploadDialog({ open, onOpenChange }: Props) {
       const res = await fetch("/api/certificate-extract", {
         method: "POST",
         headers: {
-          "x-filename": entry.file.name,
+          "x-filename": encodeURIComponent(entry.file.name),
           "Content-Type": "application/octet-stream",
           Authorization: `Bearer ${getToken()}`,
         },
